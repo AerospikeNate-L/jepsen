@@ -110,7 +110,7 @@
             ; Chown and move to dest, as root
             (info "Moving <"src"> as <"tmp"> to <"dest">")
             (exec! cmd-remote {:sudo "root"} [:chown sudo tmp])
-            (exec! cmd-remote {:sudo "root"} [:mv tmp (str dest (.getName (io/file src)))]))))))
+            (exec! cmd-remote {:sudo "root"} [:mv tmp dest]))))))
 
   (download! [this ctx srcs dest _]
     (let [sudo (:sudo ctx)]

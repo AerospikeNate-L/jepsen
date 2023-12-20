@@ -131,7 +131,7 @@
     (catch com.aerospike.client.AerospikeException e
       (when (zero? tries)
         (throw e))
-      ;; (info "Retrying client creation -" (.getMessage e))
+      (info "Retrying client creation -" (.getMessage e))
       (Thread/sleep 1000)
       (retry (dec tries)))))
 
@@ -159,7 +159,7 @@
   "Reclusters all connected nodes."
   []
   ;; Sends to all clustered nodes.
-  (c/trace (c/su (c/exec :asadm :-e "asinfo -v recluster:"))))
+  (c/trace (c/su (c/exec :asadm :-e "enable; asinfo -v recluster:"))))
 
 (defn revive!
   "Revives a namespace on the local node."
@@ -257,14 +257,16 @@
    (c/exec :mkdir :-p remote-package-dir)
    (c/exec :chmod :a+rwx remote-package-dir)
    (doseq [[name file] (local-packages)]
-    ;;  (c/trace
-    ;;   ;;  (c/upload (.getPath (io/resource "features.conf")) "/etc/aerospike/"))
-    ;;    (c/upload (.getCanonicalPath file) remote-package-dir))
-    ;;    (info "Uploaded" (.getCanonicalPath file) " to " (str remote-package-dir name))
-    ;;    (info "--AND" (.getPath (io/resource "features.conf")) " to /etc/aerospike/features.conf")       
-       (c/exec :dpkg :-i :--force-confnew (str remote-package-dir name)))
+     (c/trace
+      ;;  (c/upload (.getPath (io/resource "features.conf")) "/etc/aerospike/"))
+       
+       
+      ;;  (c/upload (.getCanonicalPath file) (str remote-package-dir name)))
+       (info "DIDNT Uploaded" (.getCanonicalPath file) " to " (str remote-package-dir name))
+    
+       (c/exec :dpkg :-i :--force-confnew (str remote-package-dir name))))
 
-   (c/upload (.getPath (io/resource "features.conf")) "/etc/aerospike/")
+   (c/upload (.getPath (io/resource "features.conf")) "/etc/aerospike/features.conf")
    ; sigh
    (c/exec :systemctl :daemon-reload)
 
