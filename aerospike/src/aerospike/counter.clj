@@ -48,6 +48,8 @@
       (s/put! client namespace set key {:value 0})
       (assoc this :client client)))
 
+  (setup! [this test] this)
+
   (invoke! [this test op]
     (s/with-errors op #{:read}
       (case (:f op)
@@ -57,8 +59,11 @@
         :add  (do (s/add! client namespace set key {:value (:value op)})
                   (assoc op :type :ok)))))
 
-  (teardown! [this test]
-    (s/close client)))
+  (teardown! [this test])
+    
+  (close! [this test]
+    (s/close client))
+    )
 
 (defn counter-client
   "A basic counter."

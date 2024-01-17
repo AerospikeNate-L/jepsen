@@ -99,7 +99,8 @@
           :pause  (swap! state assoc :state :paused)
           :resume (swap! state next-healthy test))
         (info :state @state)
-        (assoc op :value v)))))
+        (assoc op :value v)))
+    (teardown! [this test])))
 
 (defrecord Client [namespace set state client]
   client/Client

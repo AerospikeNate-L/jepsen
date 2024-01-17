@@ -2,6 +2,7 @@
   "Uses CAS ops on a single key to add elements to a set"
   (:require [aerospike.support :as s]
             [clojure.string :as str]
+            ;; [clojure.core :refer deref]
             [jepsen [client :as client]
                     [checker :as checker]
                     [generator :as gen]
@@ -13,7 +14,7 @@
   (open! [this test node]
     (assoc this :client (s/connect node)))
 
-  (setup! [this test])
+  (setup! [this test] this)
 
   (invoke! [this test op]
     (let [[k v] (:value op)]
@@ -58,7 +59,7 @@
                     (->> (range 10000)
                          (map (fn [x] {:type :invoke, :f :add, :value x}))
                          (gen/stagger 1/10))))
-     :final-generator (s/derefer
+     :final-generator (deref
                         (delay
                           (locking keys
                             (independent/concurrent-generator
@@ -66,6 +67,6 @@
                               (range (inc @max-key))
                               (fn [k]
                                 (gen/stagger 10
-                                   (s/each
+                                   (gen/each-thread
                                      (gen/once {:type :invoke
                                                 :f    :read}))))))))}))
