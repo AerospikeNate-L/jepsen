@@ -2,6 +2,8 @@
   "Uses CAS ops on a single key to add elements to a set"
   (:require [aerospike.support :as s]
             [clojure.string :as str]
+            [clojure.tools.logging :refer [debug info warn]]
+            [clojure.walk :as walk]
             ;; [clojure.core :refer deref]
             [jepsen [client :as client]
                     [checker :as checker]
@@ -52,21 +54,24 @@
     {:client  (set-client)
      :checker (independent/checker (checker/set))
      :generator (independent/concurrent-generator
-                  5
+                  5  ; TODO - make this dynamic to concurrency?
+                     ; -> concurrency // this value = num keys
                   (range)
                   (fn [k]
                     (swap! max-key max k)
                     (->> (range 10000)
                          (map (fn [x] {:type :invoke, :f :add, :value x}))
                          (gen/stagger 1/10))))
-     :final-generator (deref
-                        (delay
+     :final-generator (delay
                           (locking keys
                             (independent/concurrent-generator
-                              5
-                              (range (inc @max-key))
+                              2  ; number of times to read each key @ end
+                              
+                              (range (inc @max-key))  ; which keys to read.
+                              ; FIXME : read up to concurrency // worker's N
+                              ; (range (inc @max-key))  <-- only reads key 0
+                              
                               (fn [k]
                                 (gen/stagger 10
                                    (gen/each-thread
-                                     (gen/once {:type :invoke
-                                                :f    :read}))))))))}))
+                                     (gen/once {:type :invoke  :f    :read})))))))}))
