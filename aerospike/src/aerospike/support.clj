@@ -6,7 +6,7 @@
               [string :as str]]
             [clojure.java.io :as io]
             [clojure.walk :as walk]
-            [clojure.tools.logging :refer [debug info warn]]
+            [clojure.tools.logging :refer [debug info infof warn]]
             [dom-top.core :refer [with-retry letr]]
             [jepsen [core      :as jepsen]
                     [db        :as db]
@@ -29,25 +29,28 @@
                             [util :as netUtil]]
   )
 
-  (:import 
-          (clojure.lang ExceptionInfo)
-          (com.aerospike.client AerospikeClient
-                                 AerospikeException
-                                 AerospikeException$Connection
-                                 AerospikeException$Timeout
-                                 Bin
-                                 Info
-                                 Key
-                                 Record)
-           (com.aerospike.client.cluster Node)
-           (com.aerospike.client.policy Policy
-                                        ClientPolicy
-                                        RecordExistsAction
-                                        ReadModeSC
-                                        GenerationPolicy
-                                        WritePolicy
-                                        )
-  )
+  (:import
+   (clojure.lang ExceptionInfo)
+   (com.aerospike.client AerospikeClient
+                         AerospikeException
+                         AerospikeException$Connection
+                         AerospikeException$Timeout
+                         Bin
+                         Info
+                         Operation
+                         Key
+                         Record
+                         Value)
+   (com.aerospike.client.cdt ListOperation
+                             ListPolicy)
+   (com.aerospike.client.cluster Node)
+   (com.aerospike.client.policy Policy
+                                ClientPolicy
+                                RecordExistsAction
+                                ReadModeSC
+                                GenerationPolicy
+                                WritePolicy)
+   (java.util ArrayList))
 )
 
 (def local-package-dir
@@ -142,7 +145,7 @@
   ;; FIXME - client no longer blocks till cluster is ready.
   (let [client (create-client node)]
     ; Wait for connection
-    (while (not (.isConnected client))
+    (while (not (.isConnected ^AerospikeClient client))
       (Thread/sleep 100))
 
     (info "CLIENT CONNECTED!")
@@ -421,8 +424,9 @@
   "Takes a map of bin names (as symbols or strings) to values and emits an
   array of Bins."
   [bins]
+  (info "Converting Map to Bins" bins)
   (->> bins
-       (map (fn [[k v]] (Bin. (name k) v)))
+       (map (fn [[k v]] (Bin. ^String (name k) ^Value v)))
        (into-array Bin)))
 
 (defn put!
@@ -452,6 +456,52 @@
   ([^AerospikeClient client, ^WritePolicy policy, namespace set key bins]
    (.append client policy (Key. namespace set key) (map->bins bins))))
 
+;; (defn list-append ""
+;;   [client namespace set key bins]
+;;   (.Operate client  )
+;;   )
+
+(def sendKey-WritePolicy
+  (let [p write-policy]
+    (set! (.sendKey p) true)
+    p))
+
+(defn append-to-list-or-create [^AerospikeClient client, namespace set key bins]
+  (let [pk (Key. namespace set key)
+        write-policy sendKey-WritePolicy
+        record (doto (.get ^AerospikeClient client write-policy pk))
+        binName (name :value)
+        binVal (:value bins)
+        ]
+    ;; (info "RECORD:" record)
+    ;; (info "KEY =" key)
+    ;; (info "B-N =" binName)
+    ;; (info "VAL =" binVal)
+    (if (and record (.bins record) (.containsKey (.bins record) binName))
+      ;; Bin exists, append to the list
+      (do 
+        (info "UPDATING RECORD!")
+        (let [op (ListOperation/append ^ListPolicy (ListPolicy.) ^String binName ^Value (Value/get binVal) nil)]
+          (info "WITH OP :=" op)
+          (doto (.operate ^AerospikeClient client
+                          ^WritePolicy write-policy
+                          ^Key pk
+                          (into-array [^Operation op])))
+          )
+        )
+      ;; Bin doesn't exist, create it with the list containing the value
+      (let [bin (Bin. ^String binName  (ArrayList. [(Value/get binVal)]))]
+        (info "PERFORMING INITIAL WRITE to key(%s)" key binName (Value/get binVal))
+        ;; (info "KEY =" key)
+        ;; (info "B-N =" binName)
+        ;; (info "B-V =" bin)
+        ;; (info "VAL =" binVal)
+        ;; (put! client namespace set key {:value (Value/get binVal)})
+        (doto (.put client
+                    ^WritePolicy write-policy
+                    ^Key pk
+                     (into-array [^Bin bin]))
+                    )))))
 
 (defn fetch
   "Reads a record as a map of bin names to bin values from the given namespace,

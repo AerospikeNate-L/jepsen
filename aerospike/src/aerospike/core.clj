@@ -5,13 +5,15 @@
                        [cas-register :as cas-register]
                        [nemesis :as nemesis]
                        [pause :as pause]
-                       [set :as set]]
+                       [set :as set] 
+                       [txn_test :as txn_test]]
             [clojure.tools.logging :refer [debug info warn]]
             [jepsen [cli :as cli]
                     [checker :as checker]
                     [generator :as gen]
                     [tests :as tests]]
-            [jepsen.os.debian :as debian])
+            [jepsen.os.debian :as debian]
+            [aerospike.txn_test :as txn_test])
   (:gen-class))
 
 (defn workloads
@@ -29,7 +31,8 @@
   {:cas-register (cas-register/workload)
    :counter      (counter/workload)
    :set          (set/workload)
-   :pause        :pause}) ; special case
+   :pause        :pause ; special case
+   :txn-test     (txn_test/workload)}) 
 
 (defn workload+nemesis
   "Finds the workload and nemesis for a given set of parsed CLI options."
