@@ -31,8 +31,10 @@
       (let [txn       (:value op)
             use-txn?  (< 1 (count txn))
             txn'   (mapv (partial mop! client test) txn)]  ;; TODO - make this do the txn and become the result
-        (info "OP OKAY!! -->>" op)
+        (info "OP OK! -->>" op)
         (info "RESULT -->>" txn')
+        
+        ;; (info "ResVal -->>" (get-in (.bins (nth txn' 2)) ["value"]))
         (assoc op :type :ok, :value txn')
         )))
   (teardown! [_ test])
