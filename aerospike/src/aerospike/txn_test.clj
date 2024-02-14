@@ -6,7 +6,7 @@
                     [independent :as independent]]
             [jepsen.tests.cycle.append :as append]))
 
-(def txn-set "Set Name for Txn Test->'entries'" "entries")
+(def txn-set "Set Name for Txn Test" "entries")
 
 (defn mop!
   "Executes a transactional micro-op on a connection. Returns the completed
@@ -17,8 +17,13 @@
                 (s/fetch s/ans txn-set k)
                 :bins
                 :value
-                (or ""))
-         :append (s/append-to-list-or-create conn s/ans txn-set k {:value v}))])
+                (or []))
+         :append (do 
+                  ;;  (info "RETURN VALUE OF APPEND-or-CREATE:\n"
+                   (s/list-append conn s/ans txn-set k {:value v})
+                  ;;  )
+                     v)
+       )])
 
 (defrecord TxnClient [client namespace set]
   client/Client
@@ -26,15 +31,11 @@
     (assoc this :client (s/connect node)))
   (setup! [this _] this)
   (invoke! [this test op]
-    (info "Invoking" op)
+    ;; (info "Invoking" op)
     (s/with-errors op #{}
       (let [txn       (:value op)
             use-txn?  (< 1 (count txn))
             txn'   (mapv (partial mop! client test) txn)]  ;; TODO - make this do the txn and become the result
-        (info "OP OK! -->>" op)
-        (info "RESULT -->>" txn')
-        
-        ;; (info "ResVal -->>" (get-in (.bins (nth txn' 2)) ["value"]))
         (assoc op :type :ok, :value txn')
         )))
   (teardown! [_ test])
@@ -49,5 +50,5 @@
 (defn workload
   []
   {:client (txn-client)
-   :checker (append/checker )
-   :generator (append/gen {})})
+   :checker (append/checker {:consistency-models [:linearizable]})
+   :generator (append/gen {:max-txn-length     1})})

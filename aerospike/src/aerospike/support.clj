@@ -128,7 +128,7 @@
   "Spinloop to create a client, since our hacked version will crash on init if
   it can't connect."
   [node]
-  (info "CREATING CLIENT")
+  ;; (info "CREATING CLIENT")
   (with-retry [tries 30]
     (AerospikeClient. (fSingleNode-policy) node 3000)
     (catch com.aerospike.client.AerospikeException e
@@ -148,7 +148,7 @@
     (while (not (.isConnected ^AerospikeClient client))
       (Thread/sleep 100))
 
-    (info "CLIENT CONNECTED!")
+    ;; (info "CLIENT CONNECTED!")
     ; Wait for workable ops
     (while (try (server-info (first (nodes client)))
                 false
@@ -265,9 +265,11 @@
        
        
       ;;  (c/upload (.getCanonicalPath file) (str remote-package-dir name)))
-       (info "DIDNT Uploaded" (.getCanonicalPath file) " to " (str remote-package-dir name))
-    
-       (c/exec :dpkg :-i :--force-confnew (str remote-package-dir name))))
+        ;; (info "DIDNT Uploaded" (.getCanonicalPath file) " to " (str remote-package-dir name))
+        ; handle "dpkg was interrupted, you must manually run 
+        ; 'sudo dpkg --configure -a' to correct the problem."
+        (c/exec :dpkg :--configure :-a)  
+        (c/exec :dpkg :-i :--force-confnew (str remote-package-dir name))))
 
    (c/upload (.getPath (io/resource "features.conf")) "/etc/aerospike/features.conf")
    ; sigh
@@ -424,7 +426,7 @@
   "Takes a map of bin names (as symbols or strings) to values and emits an
   array of Bins."
   [bins]
-  (info "Converting Map to Bins" bins)
+  ;; (info "Converting Map to Bins" bins)
   (->> bins
        (map (fn [[k v]] (Bin. ^String (name k) ^Value v)))
        (into-array Bin)))
@@ -466,42 +468,18 @@
     (set! (.sendKey p) true)
     p))
 
-(defn append-to-list-or-create [^AerospikeClient client, namespace set key bins]
+(defn list-append  [^AerospikeClient client, namespace set key bins]
   (let [pk (Key. namespace set key)
         write-policy sendKey-WritePolicy
-        record (doto (.get ^AerospikeClient client write-policy pk))
+        ;; record (doto (.get ^AerospikeClient client write-policy pk))
         binName (name :value)
         binVal (:value bins)
+        op (ListOperation/append ^ListPolicy (ListPolicy.) ^String binName ^Value (Value/get binVal) nil)
         ]
-    ;; (info "RECORD:" record)
-    ;; (info "KEY =" key)
-    ;; (info "B-N =" binName)
-    ;; (info "VAL =" binVal)
-    (if (and record (.bins record) (.containsKey (.bins record) binName))
-      ;; Bin exists, append to the list
-      (do 
-        (info "UPDATING RECORD!")
-        (let [op (ListOperation/append ^ListPolicy (ListPolicy.) ^String binName ^Value (Value/get binVal) nil)]
-          (info "WITH OP :=" op)
-          (doto (.operate ^AerospikeClient client
-                          ^WritePolicy write-policy
-                          ^Key pk
-                          (into-array [^Operation op])))
-          )
-        )
-      ;; Bin doesn't exist, create it with the list containing the value
-      (let [bin (Bin. ^String binName  (ArrayList. [(Value/get binVal)]))]
-        (info "PERFORMING INITIAL WRITE to key(%s)" key binName (Value/get binVal))
-        ;; (info "KEY =" key)
-        ;; (info "B-N =" binName)
-        ;; (info "B-V =" bin)
-        ;; (info "VAL =" binVal)
-        ;; (put! client namespace set key {:value (Value/get binVal)})
-        (doto (.put client
+    (doto (.operate ^AerospikeClient client
                     ^WritePolicy write-policy
                     ^Key pk
-                     (into-array [^Bin bin]))
-                    )))))
+                    (into-array [^Operation op])))))
 
 (defn fetch
   "Reads a record as a map of bin names to bin values from the given namespace,
