@@ -254,6 +254,7 @@
   [node]
   (info "Installing Aerospike packages")
   (c/su
+    (c/exec :dpkg :--configure :-a)
    (debian/uninstall! ["aerospike-server-*" "aerospike-tools"])
    (debian/install ["python-is-python3"])
   ;;  (debian/install ["python"])
