@@ -6,7 +6,9 @@
                        [nemesis :as nemesis]
                        [pause :as pause]
                        [set :as set] 
-                       [txn_test :as txn_test]]
+                       [txn_test :as txn_test]
+                       [transact :as transact]
+            ]
             [clojure.tools.logging :refer [debug info warn]]
             [jepsen [cli :as cli]
                     [checker :as checker]
@@ -32,7 +34,9 @@
    :counter      (counter/workload)
    :set          (set/workload)
    :pause        :pause ; special case
-   :txn-test     (txn_test/workload)}) 
+   :txn-test     (txn_test/workload) 
+   :transact     (transact/workload)
+   }) 
 
 (defn workload+nemesis
   "Finds the workload and nemesis for a given set of parsed CLI options."
@@ -70,6 +74,7 @@
                                 (gen/sleep 10)
                                 (gen/clients final-generator)))]
     (info "constructed jepsen test-map")
+    (info "NEMESIS=" (:nemesis nemesis))
     (merge tests/noop-test
            opts
            {:name     (str "aerospike " (name (:workload opts)))

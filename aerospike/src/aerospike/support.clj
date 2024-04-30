@@ -265,7 +265,7 @@
       ;;  (c/upload (.getPath (io/resource "features.conf")) "/etc/aerospike/"))
        
        
-      ;;  (c/upload (.getCanonicalPath file) (str remote-package-dir name)))
+      ;;  (c/upload (.getCanonicalPath file) (str remote-package-dir name))
         ;; (info "DIDNT Uploaded" (.getCanonicalPath file) " to " (str remote-package-dir name))
         ; handle "dpkg was interrupted, you must manually run 
         ; 'sudo dpkg --configure -a' to correct the problem."
@@ -429,7 +429,7 @@
   [bins]
   ;; (info "Converting Map to Bins" bins)
   (->> bins
-       (map (fn [[k v]] (Bin. ^String (name k) ^Value v)))
+       (map (fn [[k v]] (Bin. ^String (name k) v)))
        (into-array Bin)))
 
 (defn put!
@@ -485,10 +485,18 @@
 (defn fetch
   "Reads a record as a map of bin names to bin values from the given namespace,
   set, and key. Returns nil if no record found."
-  [^AerospikeClient client namespace set key]
-  (-> client
-      (.get linearize-read-policy (Key. namespace set key))
-      record->map))
+  ([^AerospikeClient client namespace set key]
+   (-> client
+       (.get linearize-read-policy (Key. namespace set key))
+       record->map))
+  ([^AerospikeClient client namespace set key trid]
+   (let [p linearize-read-policy]
+     (set! (.tran p) trid)
+     (-> client
+         (.get p (Key. namespace set key))
+         record->map)))
+  )
+
 
 (defn cas!
   "Atomically applies a function f to the current bins of a record."
@@ -564,6 +572,8 @@
 
            ;; Forbidden
            22 (assoc ~op :type :fail, :error [:forbidden (.getMessage e#)])
+
+           29 (assoc ~op :type :fail, :error :MRT-blocked)
 
            (do (info :error-code (.getResultCode e#))
                (throw e#)))))))
