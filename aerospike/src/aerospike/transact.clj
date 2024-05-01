@@ -17,8 +17,8 @@
   )
 
 (defn mop!
-  "Executes a transactional micro-op on a connection. Returns the completed
-  micro-op."
+  "Given a client, transaction-id, and micro-operation,
+   Executes micro-op invocation & Returns the completed micro-op."
   [conn tid [f k v]]
   [f k (case f
          :r (-> conn
@@ -45,21 +45,34 @@
     (info "Invoking" op)
     (if (= (:f op) :txn)   
       (s/with-errors op #{}
-        ;; (do 
-        (let [tid (.tranBegin client)
+        (let [tid (.tranBegin client)]
+        (try 
+          (let [
               ;; wp (txn-wp tid)
-              txn (:value op)
-              txn' (mapv (partial mop! client tid) txn)
-              ]
+                txn (:value op)
+                txn' (mapv (partial mop! client tid) txn)
+                ]
           ;; (info "TRANSACTION!" tid "begin")
           ;; (mapv (partial mop! client wp) txn)
           ;; (info "TRANSACTION!" tid "ending")
-          (.tranEnd client tid)
-          
-      ;; )
-          (assoc op :type :ok :value txn')
+            (.tranEnd client tid)
+            
+            (assoc op :type :ok :value txn')
+            )
+          ;; (info  op)
+          (catch com.aerospike.client.AerospikeException e#
+            (case (.getResultCode e#)
+                29 (do
+                     (info "CAUGHT CODE 29 in TranClient.invoke")
+                     (.tranAbort client tid)
+                     (assoc op :type :fail, :error :MRT-blocked)
+                   )
+            ;; 30
+                (throw e#)
+            )
           )
-      )
+        )
+      ))
       (info "REGULAR OP!"))
   )
   (teardown! [_ test])
