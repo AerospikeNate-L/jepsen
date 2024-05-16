@@ -1,4 +1,4 @@
-(defproject aerospike "0.1.0"
+(defproject aerospike "0.2.0"
   :description "Jepsen tests for the Aerospike database."
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
@@ -7,7 +7,7 @@
   :dependencies [[org.clojure/clojure "1.12.0-alpha5"]
                  [jepsen "0.3.5a-aerospike"]
                 ;;  [:local/root "/home/nlarsen/.m2/repository/com/aerospike/aerospike-client-test/8.1.0/aerospike-client-test-8.1.0.jar"]
-                 [com.aerospike/aerospike-client-jdk21 "8.1.0"]
+                 [com.aerospike/aerospike-client-jdk21-jepsen "8.1.1"]
                  [com.sun.xml.bind/jaxb-core "4.0.4"]
                  [javax.xml.bind/jaxb-api "2.4.0-b180830.0359"]
                  [com.sun.xml.bind/jaxb-impl "4.0.4"]

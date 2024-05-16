@@ -35,5 +35,5 @@ jepsen/doc
 .eastwood
 docker/docker-compose.yml
 aerospike/resources/features.conf
-**/.clj-kondo/**/*.json
-**/.clj-kondo/**/lock
+**/.clj-kondo/
+**/.calva/

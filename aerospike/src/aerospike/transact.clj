@@ -55,16 +55,17 @@
           ;; (info "TRANSACTION!" tid "begin")
           ;; (mapv (partial mop! client wp) txn)
           ;; (info "TRANSACTION!" tid "ending")
-            (.tranEnd client tid)
+            (.tranCommit client tid)
             
             (assoc op :type :ok :value txn')
             )
           ;; (info  op)
           (catch com.aerospike.client.AerospikeException e#
+            (info "Exception caught, aborting..")
+            (.tranAbort client tid)
             (case (.getResultCode e#)
                 29 (do
-                     (info "CAUGHT CODE 29 in TranClient.invoke")
-                     (.tranAbort client tid)
+                     (info "CAUGHT CODE 29 in TranClient.invoke --> ABORTING " (:value op))
                      (assoc op :type :fail, :error :MRT-blocked)
                    )
             ;; 30
@@ -83,5 +84,5 @@
 (defn workload []
   {:client (TranClient. nil s/ans "vals")
    :checker (rw/checker)
-   :generator (rw/gen {})}
+   :generator (rw/gen {:key-dist :uniform, :key-count 3})}
 )
